@@ -1,1 +1,66 @@
+<!doctypehtml><title>Buku Tamu</title><div style=font-family:Calibri;font-size:25px><strong>BUKU TAMU DIGITAL</strong></div>
+<div style=font-family:Calibri;font-size:14px>Berkenan mengisi u/bukti administrasi kami</div>
+<p>
+<div style=font-family:Calibri;font-size:14px><form id=myForm><label for=timestamp>Timestamp:</label><br><input id=timestamp name=timestamp required readonly><br><br><label for=namaTamu>Nama Tamu:</label><br><input id=namaTamu name=namaTamu required><br><br><label for=namaInstitusi>Nama Institusi / Perusahaan:</label><br><input id=namaInstitusi name=namaInstitusi required><br><br><label for=noWa>No WA:</label><br><input id=noWa name=noWa required type=number><br><br><label for=keperluan>Keperluan:</label><br><select id=keperluan name=keperluan required><option value=Dinas>Dinas<option value=Keluarga>Keluarga<option value="Acara Sosial">Acara Sosial<option value=Bisnis>Bisnis<option value=Pendidikan>Pendidikan<option value=Wisata>Wisata<option value=Kesehatan>Kesehatan<option value=Keagamaan>Keagamaan<option value=Penjualan>Penjualan<option value=Service>Service<option value=Kerjasama>Kerjasama</select><br><br><label for=yangDituju>Yang Dituju:</label><br><input id=yangDituju name=yangDituju required><br><br><input type=submit value=Submit></form><div id=progressContainer><div id=progressBar></div></div><p id=responseMessage><p id=extraMessage>Inputan cukup sekali</div><script>document.addEventListener("DOMContentLoaded", function () {
+        var timestampField = document.getElementById("timestamp");
+        var currentDate = new Date();
+        timestampField.value = currentDate
+          .toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          })
+          .replace(",", "");
 
+        document.getElementById("myForm").addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          var progressContainer = document.getElementById("progressContainer");
+          var progressBar = document.getElementById("progressBar");
+          var extraMessage = document.getElementById("extraMessage");
+          progressContainer.style.display = "block";
+          progressBar.style.width = "1%";
+
+          var interval = setInterval(function () {
+            var width = parseInt(progressBar.style.width);
+            if (width >= 100) {
+              clearInterval(interval);
+            } else {
+              progressBar.style.width = width + 1 + "%";
+            }
+          }, 20);
+
+          var formData = new FormData(event.target);
+
+          fetch(
+            "https://script.google.com/macros/s/AKfycbyiMy2VYIfPFnT0yshx7QB3_v2R6kWhS25aP2IlmTLQoFNa3VY18lSeqayliz3aV8Fm/exec",
+            {
+              method: "POST",
+              body: JSON.stringify(Object.fromEntries(formData)),
+            }
+          )
+            .then((response) => response.text())
+            .then((data) => {
+              clearInterval(interval);
+              var responseMessage = document.getElementById("responseMessage");
+              responseMessage.textContent = "INPUTAN TELAH KAMI TERIMA!";
+              responseMessage.className = "success";
+              responseMessage.style.display = "block";
+              extraMessage.style.display = "block";
+              progressContainer.style.display = "none";
+            })
+            .catch((error) => {
+              clearInterval(interval);
+              var responseMessage = document.getElementById("responseMessage");
+              responseMessage.textContent = "Gagal mengirim formulir.";
+              responseMessage.className = "error";
+              responseMessage.style.display = "block";
+              extraMessage.style.display = "none";
+              progressContainer.style.display = "none";
+            });
+        });
+      });</script>
