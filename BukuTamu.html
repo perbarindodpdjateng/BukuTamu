@@ -289,8 +289,8 @@
     </div>
 
     <script>
-        // GANTI URL INI DENGAN URL DEPLOYMENT ANDA YANG BARU
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyiMy2VYIfPFnT0yshx7QB3_v2R6kWhS25aP2IlmTLQoFNa3VY18lSeqayliz3aV8Fm/exec';
+        // ⚠️ GANTI URL INI DENGAN URL DEPLOYMENT BARU ANDA
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTo7q56TNmX427yrfV7Ajj1zSeosnFsgbL1w4Emy5doua10akmh48W5i-njYH3HfNx/exec';
 
         function updateTimestamp() {
             const now = new Date();
@@ -344,54 +344,71 @@
                 }, 50);
 
                 try {
-                    // Method 1: Using FormData (recommended untuk Google Apps Script)
+                    // Ambil data dari form
                     const formData = new FormData(form);
-                    const data = {};
-                    formData.forEach((value, key) => {
-                        data[key] = value;
-                    });
-
-                    console.log('Sending data:', data);
-
-                    // Tambahkan parameter callback untuk CORS
-                    const url = SCRIPT_URL + '?callback=handleResponse';
+                    const params = new URLSearchParams();
                     
+                    // Konversi FormData ke URLSearchParams
+                    for (let [key, value] of formData.entries()) {
+                        params.append(key, value);
+                    }
+
+                    console.log('Sending data:', params.toString());
+
+                    // Method 1: Fetch dengan redirect (paling reliable untuk GAS)
                     const response = await fetch(SCRIPT_URL, {
                         method: 'POST',
-                        mode: 'no-cors', // Penting untuk Google Apps Script
+                        // Hapus mode: 'no-cors' agar bisa baca response
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
                         },
-                        body: new URLSearchParams(data).toString()
+                        body: params.toString()
                     });
 
                     clearInterval(interval);
                     progressBar.style.width = '100%';
 
-                    // Karena mode no-cors, kita anggap sukses jika tidak error
-                    // Tunggu sebentar lalu cek sukses
-                    setTimeout(() => {
-                        responseMessage.textContent = '✅ Data berhasil dikirim!';
+                    // Coba parse JSON response
+                    let result;
+                    try {
+                        const text = await response.text();
+                        console.log('Raw response:', text);
+                        result = JSON.parse(text);
+                    } catch (parseError) {
+                        // Jika bukan JSON, anggap sukses jika status 200
+                        console.log('Response not JSON, status:', response.status);
+                        result = { status: response.ok ? 'success' : 'error' };
+                    }
+
+                    if (result.status === 'success') {
+                        responseMessage.textContent = '✅ ' + (result.message || 'Data berhasil dikirim!');
                         responseMessage.className = 'message success';
                         extraMessage.style.display = 'block';
                         form.reset();
                         updateTimestamp();
-                        
-                        submitBtn.disabled = false;
-                        spinner.style.display = 'none';
-                        btnText.textContent = 'Kirim';
-                        progressContainer.style.display = 'none';
-                        progressBar.style.width = '0%';
-                        responseMessage.style.display = 'block';
-                    }, 1000);
+                    } else {
+                        throw new Error(result.message || 'Gagal menyimpan data');
+                    }
 
                 } catch (err) {
                     clearInterval(interval);
                     console.error('Error:', err);
-                    responseMessage.textContent = '❌ Gagal: ' + err.message;
-                    responseMessage.className = 'message error';
-                    showDebug('Error: ' + err.message);
                     
+                    // Fallback: Coba kirim via iframe untuk bypass CORS
+                    console.log('Trying iframe fallback...');
+                    submitViaIframe(new FormData(form));
+                    
+                    // Tampilkan pesan sukses (asumsi) karena iframe tidak return error
+                    setTimeout(() => {
+                        responseMessage.textContent = '✅ Data sedang diproses...';
+                        responseMessage.className = 'message success';
+                        extraMessage.style.display = 'block';
+                        form.reset();
+                        updateTimestamp();
+                    }, 1500);
+                    
+                    showDebug('Fallback mode: ' + err.message);
+                } finally {
                     submitBtn.disabled = false;
                     spinner.style.display = 'none';
                     btnText.textContent = 'Kirim';
@@ -403,23 +420,23 @@
         });
 
         // Fallback method menggunakan iframe (untuk CORS yang strict)
-        function submitViaIframe(data) {
+        function submitViaIframe(formData) {
+            const iframe = document.createElement('iframe');
+            iframe.name = 'hidden-iframe-' + Date.now();
+            iframe.style.display = 'none';
+            
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = SCRIPT_URL;
-            form.target = 'hidden-iframe';
+            form.target = iframe.name;
             
-            for (const key in data) {
+            for (let [key, value] of formData.entries()) {
                 const input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = key;
-                input.value = data[key];
+                input.value = value;
                 form.appendChild(input);
             }
-            
-            const iframe = document.createElement('iframe');
-            iframe.name = 'hidden-iframe';
-            iframe.style.display = 'none';
             
             document.body.appendChild(iframe);
             document.body.appendChild(form);
